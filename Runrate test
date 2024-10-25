@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runrate Kalkulátor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen p-4 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-xl">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h1 class="text-xl font-semibold">Runrate Kalkulátor</h1>
+        </div>
+        
+        <div class="p-6 space-y-6">
+            <!-- Takt idő bevitel -->
+            <div class="flex flex-col sm:flex-row gap-4">
+                <div class="flex-1 space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Takt idő</label>
+                    <input type="number" id="takt" min="0" step="0.1" placeholder="Adj meg egy számot"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-lg">
+                </div>
+                <div class="sm:w-32 space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Időegység</label>
+                    <select id="timeUnit" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="sec">Másodperc</option>
+                        <option value="min">Perc</option>
+                        <option value="hour">Óra</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Műszak beállítások -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Műszak hossza (óra)</label>
+                    <input type="number" id="shiftHours" min="1" max="24" value="8"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Műszakok száma</label>
+                    <input type="number" id="shifts" min="1" max="3" value="3"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700">Hatékonyság (%)</label>
+                    <input type="number" id="efficiency" min="1" max="100" value="85"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+
+            <!-- Eredmények -->
+            <div id="results" class="hidden space-y-4">
+                <div class="bg-gray-100 p-4 rounded-lg space-y-2">
+                    <h3 class="font-medium">Várható teljesítmény (<span id="efficiencyDisplay">85</span>%):</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                        <div>
+                            <div class="text-gray-600">Óránként:</div>
+                            <div id="expectedPerHour" class="font-medium">0 db/óra</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600">Műszakonként:</div>
+                            <div id="expectedPerShift" class="font-medium">0 db/8ó</div>
+                        </div>
+                        <div class="col-span-2 sm:col-span-1">
+                            <div class="text-gray-600">Naponta:</div>
+                            <div id="expectedPerDay" class="font-medium">0 db (3 műszak)</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 p-4 rounded-lg space-y-2">
+                    <h3 class="font-medium">Maximális teljesítmény (100%):</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                        <div>
+                            <div class="text-gray-600">Óránként:</div>
+                            <div id="targetPerHour" class="font-medium">0 db/óra</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600">Műszakonként:</div>
+                            <div id="targetPerShift" class="font-medium">0 db/8ó</div>
+                        </div>
+                        <div class="col-span-2 sm:col-span-1">
+                            <div class="text-gray-600">Naponta:</div>
+                            <div id="targetPerDay" class="font-medium">0 db (3 műszak)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Input elements
+        const taktInput = document.getElementById('takt');
+        const timeUnitSelect = document.getElementById('timeUnit');
+        const shiftHoursInput = document.getElementById('shiftHours');
+        const shiftsInput = document.getElementById('shifts');
+        const efficiencyInput = document.getElementById('efficiency');
+        
+        // Results elements
+        const resultsDiv = document.getElementById('results');
+        const efficiencyDisplay = document.getElementById('efficiencyDisplay');
+        const expectedPerHour = document.getElementById('expectedPerHour');
+        const expectedPerShift = document.getElementById('expectedPerShift');
+        const expectedPerDay = document.getElementById('expectedPerDay');
+        const targetPerHour = document.getElementById('targetPerHour');
+        const targetPerShift = document.getElementById('targetPerShift');
+        const targetPerDay = document.getElementById('targetPerDay');
+
+        function calculateRunrate() {
+            const takt = parseFloat(taktInput.value);
+            if (!takt) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+
+            let taktInSeconds = takt;
+            switch (timeUnitSelect.value) {
+                case 'min':
+                    taktInSeconds *= 60;
+                    break;
+                case 'hour':
+                    taktInSeconds *= 3600;
+                    break;
+            }
+
+            const efficiency = parseFloat(efficiencyInput.value) / 100;
+            const shiftHours = parseFloat(shiftHoursInput.value);
+            const shifts = parseFloat(shiftsInput.value);
+
+            const piecesPerHour = Math.floor((3600 / taktInSeconds) * efficiency);
+            const piecesPerShift = Math.floor(piecesPerHour * shiftHours);
+            const piecesPerDay = piecesPerShift * shifts;
+
+            const targetPerHourValue = Math.floor(3600 / taktInSeconds);
+            const targetPerShiftValue = Math.floor(targetPerHourValue * shiftHours);
+            const targetPerDayValue = targetPerShiftValue * shifts;
+
+            // Update display
+            resultsDiv.classList.remove('hidden');
+            efficiencyDisplay.textContent = efficiencyInput.value;
+            
+            expectedPerHour.textContent = `${piecesPerHour} db/óra`;
+            expectedPerShift.textContent = `${piecesPerShift} db/${shiftHours}ó`;
+            expectedPerDay.textContent = `${piecesPerDay} db (${shifts} műszak)`;
+
+            targetPerHour.textContent = `${targetPerHourValue} db/óra`;
+            targetPerShift.textContent = `${targetPerShiftValue} db/${shiftHours}ó`;
+            targetPerDay.textContent = `${targetPerDayValue} db (${shifts} műszak)`;
+        }
+
+        // Calculate runrate when inputs change
+        [taktInput, timeUnitSelect, shiftHoursInput, shiftsInput, efficiencyInput].forEach(input => {
+            input.addEventListener('input', calculateRunrate);
+        });
+    </script>
+</body>
+</html>
